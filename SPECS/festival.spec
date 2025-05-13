@@ -1,7 +1,7 @@
 Name: festival
 Summary: Speech synthesis and text-to-speech system
 Version: 2.5.0
-Release: 17%{?dist}
+Release: 18%{?dist}
 
 URL: http://www.cstr.ed.ac.uk/projects/festival/
 # The Emacs file is GPL+, there is one TCL-licensed source file, and
@@ -67,8 +67,11 @@ BuildRequires: ncurses-devel
 BuildRequires: speech-tools-libs-devel
 BuildRequires: speech-tools-libs-static
 BuildRequires: systemd
+BuildRequires: systemd-rpm-macros
 BuildRequires: make
 %{?systemd_requires}
+
+%{?sysusers_requires_compat}
 
 # Requires: festival-voice
 # The hard dep below provides a festival-voice, no need to require it here.
@@ -301,6 +304,11 @@ you can also interface with Festival in via the shell or with BSD sockets.
 %patch104 -p1 -b .siteinit
 %patch105 -p1 -b .pie
 
+# Create a sysusers.d config file
+cat >festival.sysusers.conf <<EOF
+u festival - 'festival Daemon' - -
+EOF
+
 %build
 
 # build the main program
@@ -408,6 +416,8 @@ cp -a src/include/* $RPM_BUILD_ROOT%{_includedir}/festival
 mkdir -p $RPM_BUILD_ROOT%{_unitdir}
 install -p -m 644 %{SOURCE230} $RPM_BUILD_ROOT%{_unitdir}/
 
+install -m0644 -D festival.sysusers.conf %{buildroot}%{_sysusersdir}/festival.conf
+
 %files
 %doc ACKNOWLEDGMENTS NEWS README.md
 %license COPYING COPYING.poslex COPYING.cmudict
@@ -421,11 +431,10 @@ install -p -m 644 %{SOURCE230} $RPM_BUILD_ROOT%{_unitdir}/
 %{_libexecdir}/festival
 %{_mandir}/man1/*
 %{_unitdir}/festival.service
+%{_sysusersdir}/festival.conf
 
 %pre
-getent group festival >/dev/null || groupadd -r festival
-getent passwd festival >/dev/null || useradd -r -g festival -d / -s /sbin/nologin -c "festival Daemon" festival
-exit 0
+%sysusers_create_compat festival.sysusers.conf
 
 %post
 %systemd_post festival.service
@@ -491,6 +500,10 @@ exit 0
 
 
 %changelog
+* Tue Mar 11 2025 Tomas Pelka - 2.5.0-18
+- Use systemd sysusers config to create user and group
+  Resolves: RHEL-81914
+
 * Wed Jan 26 2022 Matthias Clasen <mclasen@redhat.com> - 2.5.0-17
 - Link binaries with -pie. Related: rhbz:#2044857
 
